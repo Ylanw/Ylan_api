@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/Ylanw/python_yln_github_calendar_api/issues"
   },
-  "homepage": "https://github.com/Ylanw/python_yln_github_calendar_api#readme"
+  "homepage": "https://github.com/Ylanw/python_yln_github_calendar_api#readme",
+  "dependencies": {
+    "axios": "^1.5.0"
+  }
 }
