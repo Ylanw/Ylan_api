@@ -1,24 +1,20 @@
 const axios = require('axios')
 module.exports = async (req, res) => {
   if (req.method === 'GET') {
-    if (req.query.id) {
-      let { data } = await axios.get('https://api.bilibili.com/x/web-interface/view?bvid=' + req.query.id)
-      data = data.data
-      let ls = {
-        owner: data.owner.name,
-        face: "https://images.weserv.nl/?url=" + data.owner.face,
-        title: data.title,
-        desc: data.desc,
-        pic: "https://images.weserv.nl/?url=" + data.pic,
-        coin: data.stat.coin,
-        danmaku: data.stat.danmaku,
-        favorite: data.stat.favorite,
-        like: data.stat.like,
-        reply: data.stat.reply,
-        share: data.stat.share,
-        view: data.stat.view,
-      }
-      if (req.query.t) { return res.send(ls[req.query.t]) } else return res.send(JSON.stringify(ls))
-    } else { return res.send('Hello World!') }
+    if (req.query.qq) {
+      let { data } = await axios.get(`https://users.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins=${req.query.qq}`);
+      let ls = JSON.parse(data.match(/portraitCallBack.*?\:(.*)\}/)[1])
+      res.json({
+        success: 0,
+        msg: '获取成功~',
+        name: ls[6],
+        avatar: ls[0]
+      })
+    } else {
+      res.json({
+        success: 1,
+        msg: '获取失败~'
+      })
+    }
   }
 }
