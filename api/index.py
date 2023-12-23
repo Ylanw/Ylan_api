@@ -6,74 +6,43 @@ import json
 
 def list_split(items, n):
     return [items[i:i + n] for i in range(0, len(items), n)]
-
 def getdata(name):
-    try:
-        gitpage = requests.get("https://github.com/" + name)
-        gitpage.raise_for_status()  # 检查请求是否成功
-        data = gitpage.text
+    gitpage = requests.get("https://github.com/" + name)
+    data = gitpage.text
+    datadatereg = re.compile(r'data-date="(.*?)" id="contribution-day-component')
 
-        datadatereg = re.compile(r'data-date="(.*?)" data-level')
-        datacountreg = re.compile(r'<span class="sr-only">(.*?) contribution')
+    datacountreg = re.compile(r'<tool-tip .*?class="sr-only position-absolute">(.*?) contribution')
+    datadate = datadatereg.findall(data)
+    datacount = datacountreg.findall(data)
+    datacount = list(map(int, [0 if i == "No" else i for i in datacount]))
 
-        datadate = datadatereg.findall(data)
-        datacount = datacountreg.findall(data)
-        
-        # 添加异常处理，确保数据转换成功
-        datacount = list(map(lambda x: 0 if x.lower() == "low" else int(x), datacount))
+    # 检查datadate和datacount是否为空
+    if not datadate or not datacount:
+        # 处理空数据情况
+        return {"total": 0, "contributions": []}
 
-        # 将datadate和datacount按照字典序排序
-        sorted_data = sorted(zip(datadate, datacount))
-        datadate, datacount = zip(*sorted_data)
-
-        contributions = sum(datacount)
-
-        datalist = []
-        for index, item in enumerate(datadate):
-            itemlist = {"date": item, "count": datacount[index]}
-            datalist.append(itemlist)
-
-        datalistsplit = list_split(datalist, 7)
-
-        returndata = {
-            "total": contributions,
-            "contributions": datalistsplit
-        }
-        return returndata
-
-    except Exception as e:
-        # 在发生异常时记录错误信息
-        print(f"Error in getdata: {e}")
-        return {"error": "Failed to fetch data"}
-
+    # 将datadate和datacount按照字典序排序
+    sorted_data = sorted(zip(datadate, datacount))
+    datadate, datacount = zip(*sorted_data)
+    contributions = sum(datacount)
+    datalist = []
+    for index, item in enumerate(datadate):
+        itemlist = {"date": item, "count": datacount[index]}
+        datalist.append(itemlist)
+    datalistsplit = list_split(datalist, 7)
+    returndata = {
+        "total": contributions,
+        "contributions": datalistsplit
+    }
+    return returndata
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        try:
-            path = self.path
-            user = path.split('?')[1]
-
-            # 添加对用户输入的合法性检查，防止非法输入导致错误
-            if not user:
-                raise ValueError("Invalid user parameter")
-
-            data = getdata(user)
-            self.send_response(200)
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(data).encode('utf-8'))
-
-        except Exception as e:
-            # 在发生异常时记录错误信息
-            print(f"Error in do_GET: {e}")
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Internal Server Error"}).encode('utf-8'))
-
-if __name__ == "__main__":
-    from http.server import HTTPServer
-    server_address = ('', 8000)
-    httpd = HTTPServer(server_address, handler)
-    print('Starting server...')
-    httpd.serve_forever()
+        path = self.path
+        user = path.split('?')[1]
+        data = getdata(user)
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
+        return
