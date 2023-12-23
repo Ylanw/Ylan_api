@@ -20,7 +20,7 @@ def getdata(name):
         datacount = datacountreg.findall(data)
         
         # 添加异常处理，确保数据转换成功
-        datacount = list(map(lambda x: 0 if x == "No" else int(x), datacount))
+        datacount = list(map(lambda x: 0 if x.lower() == "low" else int(x), datacount))
 
         # 将datadate和datacount按照字典序排序
         sorted_data = sorted(zip(datadate, datacount))
@@ -70,3 +70,10 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({"error": "Internal Server Error"}).encode('utf-8'))
+
+if __name__ == "__main__":
+    from http.server import HTTPServer
+    server_address = ('', 8000)
+    httpd = HTTPServer(server_address, handler)
+    print('Starting server...')
+    httpd.serve_forever()
