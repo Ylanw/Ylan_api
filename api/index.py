@@ -1,127 +1,71 @@
-# File: index.py
-
-import re
+# -*- coding: UTF-8 -*-
 import requests
-import json
-from time import sleep
+import re
 from http.server import BaseHTTPRequestHandler
+import json
 
 def list_split(items, n):
-    """Split list into chunks of size n"""
     return [items[i:i + n] for i in range(0, len(items), n)]
+def getdata(name):
 
-def getdata(base_url, name):
-    """Fetch and process GitHub user contribution data"""
+    # 2024-03-29 定义 headers 请求头
+    # 请见 https://github.com/yuhengwei2001/python_github_calendar_api/commit/0f37cfc003f09e99a1892602d8bc2b38137899d2#diff-b014e93fcab9bae29f453d7a616da5eac2f02947f32d02a1a1bf200eeaab5a39L11
     headers = {
-        'Accept': 'application/json',
+        'Referer': 'https://github.com/'+ name,
+        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Microsoft Edge";v="122"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
         'X-Requested-With': 'XMLHttpRequest'
     }
-    try:
-        # Send the request
-        gitpage = requests.get(f"{base_url}?{name}", headers=headers)
-        gitpage.raise_for_status()  # Raise an HTTPError for bad responses
-    except requests.RequestException as e:
-        return {"error": str(e)}
-
+    # 发送请求时添加 headers 请求头
+    # gitpage = requests.get("https://github.com/" + name)
+    gitpage = requests.get("https://github.com/" + name  + "?action=show&controller=profiles&tab=contributions&user_id="+ name, headers=headers)
     data = gitpage.text
+    
+    # 2023-11-22 更新正则 https://github.com/Zfour/python_github_calendar_api/issues/18
     datadatereg = re.compile(r'data-date="(.*?)" id="contribution-day-component')
     datacountreg = re.compile(r'<tool-tip .*?class="sr-only position-absolute">(.*?) contribution')
-
+    
     datadate = datadatereg.findall(data)
     datacount = datacountreg.findall(data)
-    datacount = list(map(lambda x: 0 if x == "No" else int(x), datacount))
+    datacount = list(map(int, [0 if i == "No" else i for i in datacount]))
 
+    # 检查datadate和datacount是否为空
     if not datadate or not datacount:
+        # 处理空数据情况
         return {"total": 0, "contributions": []}
-
+        
+    # 将datadate和datacount按照字典序排序
     sorted_data = sorted(zip(datadate, datacount))
     datadate, datacount = zip(*sorted_data)
-
+    
     contributions = sum(datacount)
-    datalist = [{"date": item, "count": datacount[index]} for index, item in enumerate(datadate)]
+    datalist = []
+    for index, item in enumerate(datadate):
+        itemlist = {"date": item, "count": datacount[index]}
+        datalist.append(itemlist)
     datalistsplit = list_split(datalist, 7)
-
-    return {
+    returndata = {
         "total": contributions,
         "contributions": datalistsplit
     }
-
+    return returndata
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        # 2024-03-15 规范接口的传参方式 https://github.com/Zfour/python_github_calendar_api/issues/20#issuecomment-1999115747
         path = self.path
-        base_url = "http://example.com/api"
-        user = path.split('?')[-1]
-        
-        if not user:
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(b'Missing user parameter')
-            return
-
-        data = getdata(base_url, user)
+        spl=path.split('?')[1:]
+        for kv in spl:
+            key,user=kv.split("=")
+            if key=="user": break
+        data = getdata(user)
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Content-type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
-
-# File: test_index.py
-
-import unittest
-from index import list_split, getdata, handler
-from unittest.mock import patch, MagicMock
-import json
-
-class TestListSplit(unittest.TestCase):
-    def test_list_split(self):
-        self.assertEqual(list_split([1, 2, 3, 4], 2), [[1, 2], [3, 4]])
-        self.assertEqual(list_split([1, 2, 3], 2), [[1, 2], [3]])
-        self.assertEqual(list_split([], 2), [])
-
-class TestGetData(unittest.TestCase):
-    @patch('index.requests.get')
-    def test_getdata_success(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.text = '<div data-date="2023-01-01" id="contribution-day-component"></div>' \
-                             '<tool-tip class="sr-only position-absolute">5 contributions</tool-tip>'
-        mock_get.return_value = mock_response
-
-        data = getdata('http://example.com/api', 'valid_user')
-        self.assertIn('total', data)
-        self.assertIn('contributions', data)
-
-    @patch('index.requests.get')
-    def test_getdata_no_contributions(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.text = '<div></div>'
-        mock_get.return_value = mock_response
-
-        data = getdata('http://example.com/api', 'no_contributions')
-        self.assertEqual(data['total'], 0)
-        self.assertEqual(data['contributions'], [])
-
-    @patch('index.requests.get')
-    def test_getdata_error(self, mock_get):
-        mock_get.side_effect = requests.RequestException('Error')
-        data = getdata('http://example.com/api', 'invalid_user')
-        self.assertIn('error', data)
-
-class TestHandler(unittest.TestCase):
-    def setUp(self):
-        self.handler = handler
-
-    @patch('index.getdata')
-    def test_do_GET(self, mock_getdata):
-        mock_getdata.return_value = {"total": 5, "contributions": []}
-
-        request = MagicMock()
-        request.path = '/?testuser'
-        self.handler.do_GET(request)
-
-        request.send_response.assert_called_with(200)
-        request.send_header.assert_called_with('Content-type', 'application/json')
-        request.end_headers.assert_called()
-        request.wfile.write.assert_called_with(json.dumps({"total": 5, "contributions": []}).encode('utf-8'))
-
-if __name__ == '__main__':
-    unittest.main()
+        return
