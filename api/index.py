@@ -40,5 +40,5 @@ def github_contributions():
     data = get_github_contributions(username)
     return jsonify(data)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+# Vercel 需要 `app` 变量，而不是 `app.run()`
+handler = app
