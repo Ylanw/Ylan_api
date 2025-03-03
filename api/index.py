@@ -65,6 +65,13 @@ def getdata(name):
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path
+        if path == "/":
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write("Hello World!".encode('utf-8'))
+            return
+        
         if '?' in path:
             user = path.split('?')[1]
         else:
@@ -84,4 +91,3 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
-        return
